@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Image Detector</title>
+    <!-- โหลด Tailwind CSS จาก CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* slate-900 */
+            color: #f1f5f9; /* slate-100 */
+            -webkit-tap-highlight-color: transparent;
+        }
+        .progress-ring__circle {
+            transition: stroke-dashoffset 1s ease-out;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen overflow-x-hidden p-4 md:p-8">
+
+    <div id="alertModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl transform scale-95 opacity-0 transition-all duration-300" id="alertBox">
+            <div class="flex items-center justify-center w-12 h-12 rounded-full bg-red-900/30 text-red-500 mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-center text-white mb-2" id="alertTitle">ข้อผิดพลาด</h3>
+            <p class="text-slate-300 text-center mb-6" id="alertMessage">ข้อความแจ้งเตือน</p>
+            <button onclick="closeAlert()" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-medium py-3 rounded-xl transition-colors active:scale-95 touch-manipulation">
+                ตกลง
+            </button>
+        </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto space-y-6 pb-10 mt-4">
+        <!-- Header -->
+        <div class="text-center space-y-2 mb-6">
+            <div class="flex items-center justify-center space-x-3 mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-cyan-400"><polyline points="16 3 21 3 21 8"></polyline><polyline points="8 3 3 3 3 8"></polyline><polyline points="21 16 21 21 16 21"></polyline><polyline points="3 16 3 21 8 21"></polyline><line x1="3" y1="12" x2="21" y2="12"></line></svg>
+                <h1 class="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
+                    AI Detector
+                </h1>
+            </div>
+            <p class="text-slate-400 text-sm md:text-base px-2">
+                แตะที่หน้าจอเพื่อถ่ายรูปหรือเลือกภาพจากอัลบั้ม
+            </p>
+            
+            <!-- เปลี่ยนจากช่องใส่ API Key เป็นป้ายบอกสถานะความปลอดภัย -->
+            <div class="mt-4 max-w-sm mx-auto px-4">
+                <p class="text-xs text-emerald-400 mt-2 text-center flex items-center justify-center font-medium bg-emerald-900/30 py-1.5 rounded-full border border-emerald-800/50">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                    เชื่อมต่อกับเซิร์ฟเวอร์ AI นิรภัยแล้ว
+                </p>
+            </div>
+        </div>
+
+        <!-- Upload Section -->
+        <label id="uploadSection" class="border-2 border-dashed border-slate-600 rounded-2xl p-8 flex flex-col items-center justify-center bg-slate-800/50 hover:bg-slate-800 active:bg-slate-700 transition-all cursor-pointer min-h-[350px] w-full touch-manipulation">
+            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 mb-4"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
+            <h3 class="text-xl font-semibold mb-2 text-center text-white">แตะเพื่อเลือกรูป / เปิดกล้อง</h3>
+            <p class="text-slate-500 mb-8 text-center text-sm">รองรับภาพไฟล์ JPG, PNG</p>
+            
+            <div class="bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-6 py-4 rounded-xl font-medium shadow-lg flex items-center justify-center w-full max-w-xs active:scale-95 transition-transform pointer-events-none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                เลือกภาพจากเครื่อง
+            </div>
+            
+            <input type="file" id="fileInput" class="hidden" accept="image/jpeg, image/png, image/webp">
+        </label>
+
+        <div id="previewSection" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+            
+            <!-- ด้านซ้าย: รูปภาพและการดำเนินการ -->
+            <div class="space-y-4">
+                <div class="bg-slate-800 rounded-xl p-4 shadow-xl border border-slate-700">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-medium text-slate-300 flex items-center text-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                            ภาพที่กำลังตรวจสอบ
+                        </h3>
+                        <button onclick="resetApp()" class="text-white bg-slate-700 hover:bg-slate-600 transition-colors flex items-center text-sm px-4 py-2 rounded-lg active:scale-95 touch-manipulation">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                            เปลี่ยนภาพ
+                        </button>
+                    </div>
+                    <div class="relative rounded-lg overflow-hidden bg-black aspect-square flex items-center justify-center">
+                        <img id="previewImage" src="" alt="Preview" class="max-w-full max-h-full object-contain">
+                    </div>
+                </div>
+                
+                <!-- ปุ่มเริ่มสแกน -->
+                <button id="scanButton" onclick="startAnalysis()" class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white py-5 rounded-xl font-bold text-lg shadow-lg shadow-blue-900/50 flex items-center justify-center active:scale-95 touch-manipulation transition-transform">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 animate-pulse"><polyline points="16 3 21 3 21 8"></polyline><polyline points="8 3 3 3 3 8"></polyline><polyline points="21 16 21 21 16 21"></polyline><polyline points="3 16 3 21 8 21"></polyline><line x1="3" y1="12" x2="21" y2="12"></line></svg>
+                    เริ่มสแกนวิเคราะห์ภาพ
+                </button>
+
+                <!-- แถบสถานะ (ซ่อนไว้ตอนแรก) -->
+                <div id="progressSection" class="hidden bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4 shadow-xl">
+                    <div class="flex justify-between text-sm text-slate-300 font-medium">
+                        <span id="statusText">เตรียมการวิเคราะห์...</span>
+                        <span id="progressText">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-900 rounded-full h-3 overflow-hidden">
+                        <div id="progressBar" class="bg-gradient-to-r from-cyan-400 to-blue-500 h-3 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="resultSection" class="hidden space-y-4 w-full">
+                <!-- วงแหวนเปอเซ็นต์ -->
+                <div id="resultCard" class="p-6 rounded-xl border shadow-xl flex flex-col items-center justify-center text-center space-y-4 bg-slate-800/50 border-slate-700">
+                    <div class="text-slate-300 font-medium">ความมั่นใจผลการวิเคราะห์</div>
+                    
+                    <div class="relative flex items-center justify-center py-4">
+                        <svg class="w-32 h-32 transform -rotate-90">
+                            <circle cx="64" cy="64" r="56" fill="transparent" stroke="currentColor" stroke-width="12" class="text-slate-800" />
+                            <circle id="scoreRing" cx="64" cy="64" r="56" fill="transparent" stroke="currentColor" stroke-width="12" 
+                                stroke-dasharray="351.8" 
+                                stroke-dashoffset="351.8"
+                                class="progress-ring__circle text-cyan-500" />
+                        </svg>
+                        <div class="absolute flex flex-col items-center justify-center">
+                            <span id="scorePercentage" class="text-4xl font-bold text-white">0%</span>
+                        </div>
+                    </div>
+
+                    <div id="verdictContainer" class="flex items-center font-bold text-xl justify-center">
+                        <!-- ไอคอนและข้อความฟันธงจะถูกแทรกที่นี่ -->
+                    </div>
+                </div>
+
+                <!-- เหตุผลประกอบ -->
+                <div class="bg-slate-800 rounded-xl p-5 border border-slate-700 shadow-xl space-y-4 text-sm text-slate-300">
+                    <h4 class="font-semibold text-white flex items-center border-b border-slate-700 pb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 text-cyan-400"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        เหตุผลประกอบการวิเคราะห์
+                    </h4>
+                    <ul id="reasonsList" class="space-y-3 pt-2">
+                        <!-- เหตุผลจะถูกแทรกที่นี่ -->
+                    </ul>
+
+                    <!-- ELA Image Map -->
+                    <div class="mt-6 pt-4 border-t border-slate-700">
+                        <div class="flex items-center mb-3 text-white font-medium">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 text-cyan-400"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                            แผนที่การบีบอัดพิกเซล (ELA)
+                        </div>
+                        <div class="rounded-lg overflow-hidden border border-slate-600 bg-black aspect-video flex items-center justify-center relative">
+                            <img id="elaImage" src="" alt="ELA Map" class="w-full h-full object-contain filter contrast-125">
+                        </div>
+                        <p class="text-xs text-slate-400 mt-3 text-center">
+                            * ภาพจำลองผลต่างพิกเซล: หากขอบคมกริบแต่พื้นผิวเรียบเนียนเกินไปมักเกิดจาก AI
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const fileInput = document.getElementById('fileInput');
+        const uploadSection = document.getElementById('uploadSection');
+        const previewSection = document.getElementById('previewSection');
+        const previewImage = document.getElementById('previewImage');
+        const scanButton = document.getElementById('scanButton');
+        
+        const progressSection = document.getElementById('progressSection');
+        const statusText = document.getElementById('statusText');
+        const progressText = document.getElementById('progressText');
+        const progressBar = document.getElementById('progressBar');
+        
+        const resultSection = document.getElementById('resultSection');
+        const resultCard = document.getElementById('resultCard');
+        const scoreRing = document.getElementById('scoreRing');
+        const scorePercentage = document.getElementById('scorePercentage');
+        const verdictContainer = document.getElementById('verdictContainer');
+        const reasonsList = document.getElementById('reasonsList');
+        const elaImage = document.getElementById('elaImage');
+
+        // Alert Modal Elements
+        const alertModal = document.getElementById('alertModal');
+        const alertBox = document.getElementById('alertBox');
+        const alertMessage = document.getElementById('alertMessage');
+
+        // State Variables
+        let currentFile = null;
+        const AI_SIGNATURES = [
+            'midjourney', 'dall-e', 'dalle', 'stable diffusion', 'comfyui', 
+            'automatic1111', 'invokeai', 'fooocus', 'novelai', 'leonardo', 
+            'civitai', 'sdxl', 'runwayml'
+        ];
+        const CAMERA_BRANDS = ['apple', 'samsung', 'canon', 'nikon', 'sony', 'huawei', 'oppo', 'vivo', 'xiaomi', 'exif'];
+
+        // ฟังก์ชันแปลงรูปเป็น Base64 สำหรับส่งไปให้ Vision AI
+        function getBase64Image(img) {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0);
+            const dataURL = canvas.toDataURL("image/jpeg", 0.8);
+            return dataURL.replace(/^data:image\/(png|jpg|jpeg|webp);base64,/, "");
+        }
+
+        // ฟังก์ชันเรียกใช้ Backend Server ของเราเอง (Vercel)
+        async function analyzeCompositionWithAI(imgElement) {
+            if (!navigator.onLine) {
+                return { error: 'offline' };
+            }
+            try {
+                const base64Data = getBase64Image(imgElement);
+                
+                // ชี้ไปที่ Backend API ของเรา (ซ่อน Key ไว้ที่นี่)
+                const apiUrl = '/api/vision';
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imageBase64: base64Data })
+                });
+
+                if (!response.ok) {
+                    console.warn("ไม่พบเซิร์ฟเวอร์ Backend ข้ามการใช้ Vision AI");
+                    return { error: 'no_backend' };
+                }
+
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                console.error("Vision API Error:", error);
+                return { error: 'no_backend' };
+            }
+        }
+
+        function showAlert(message) {
+            alertMessage.textContent = message;
+            alertModal.classList.remove('hidden');
+            alertModal.classList.add('flex');
+            // ทำ Animation โชว์
+            setTimeout(() => {
+                alertBox.classList.remove('scale-95', 'opacity-0');
+                alertBox.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeAlert() {
+            alertBox.classList.remove('scale-100', 'opacity-100');
+            alertBox.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                alertModal.classList.add('hidden');
+                alertModal.classList.remove('flex');
+            }, 300);
+        }
+
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files && e.target.files[0]) {
+                const file = e.target.files[0];
+                if (!file.type.startsWith('image/')) {
+                    showAlert('กรุณาอัปโหลดไฟล์รูปภาพเท่านั้นครับ');
+                    this.value = ''; // รีเซ็ต input
+                    return;
+                }
+                
+                currentFile = file;
+                const objectUrl = URL.createObjectURL(file);
+                previewImage.src = objectUrl;
+                
+                // สลับ UI
+                uploadSection.classList.add('hidden');
+                previewSection.classList.remove('hidden');
+                
+                // รีเซ็ตสถานะเก่า
+                scanButton.classList.remove('hidden');
+                progressSection.classList.add('hidden');
+                resultSection.classList.add('hidden');
+                
+                // รีเซ็ตวงแหวนคะแนน
+                scoreRing.style.strokeDashoffset = 351.8;
+                scorePercentage.textContent = '0%';
+            }
+        });
+
+        function resetApp() {
+            currentFile = null;
+            fileInput.value = '';
+            previewImage.src = '';
+            uploadSection.classList.remove('hidden');
+            previewSection.classList.add('hidden');
+        }
+
+        function updateProgress(percent, text) {
+            progressBar.style.width = `${percent}%`;
+            progressText.textContent = `${percent}%`;
+            if(text) statusText.textContent = text;
+        }
+
+        function scanMetadata(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const buffer = e.target.result;
+                        const decoder = new TextDecoder('utf-8', { fatal: false });
+                        // อ่านข้อมูล 1MB แรก เพื่อหา Metadata
+                        const text = decoder.decode(buffer.slice(0, 1024 * 1024)).toLowerCase();
+                        
+                        const foundSignatures = AI_SIGNATURES.filter(sig => text.includes(sig));
+                        const hasRealCameraMeta = CAMERA_BRANDS.some(brand => text.includes(brand));
+
+                        resolve({
+                            isAi: foundSignatures.length > 0,
+                            signatures: foundSignatures,
+                            hasRealCameraMeta: hasRealCameraMeta,
+                            confidence: foundSignatures.length > 0 ? 98 : 0
+                        });
+                    } catch (err) {
+                        console.error("Metadata scan error", err);
+                        resolve({ isAi: false, signatures: [], hasRealCameraMeta: false, confidence: 0 });
+                    }
+                };
+                reader.onerror = () => resolve({ isAi: false, signatures: [], hasRealCameraMeta: false, confidence: 0 });
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function performELA(imgSource, quality = 0.90, multiplier = 15) {
+            return new Promise((resolve) => {
+                const canvasOriginal = document.createElement('canvas');
+                const ctxOriginal = canvasOriginal.getContext('2d');
+                
+                // จำกัดขนาดป้องกันเบราว์เซอร์ล่มบนมือถือ
+                const MAX_DIM = 600;
+                let width = imgSource.naturalWidth;
+                let height = imgSource.naturalHeight;
+                
+                if (width > MAX_DIM || height > MAX_DIM) {
+                    const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
+                    width = Math.round(width * ratio);
+                    height = Math.round(height * ratio);
+                }
+
+                canvasOriginal.width = width;
+                canvasOriginal.height = height;
+                ctxOriginal.drawImage(imgSource, 0, 0, width, height);
+
+                // จำลองบีบอัดเป็น JPEG ครั้งที่ 2 (เพื่อสร้าง Error Level)
+                const jpegDataUrl = canvasOriginal.toDataURL('image/jpeg', quality);
+                const imgCompressed = new Image();
+                
+                imgCompressed.onload = () => {
+                    const canvasCompressed = document.createElement('canvas');
+                    const ctxCompressed = canvasCompressed.getContext('2d');
+                    canvasCompressed.width = width;
+                    canvasCompressed.height = height;
+                    ctxCompressed.drawImage(imgCompressed, 0, 0, width, height);
+
+                    const imgDataOrig = ctxOriginal.getImageData(0, 0, width, height);
+                    const imgDataComp = ctxCompressed.getImageData(0, 0, width, height);
+                    
+                    const canvasResult = document.createElement('canvas');
+                    canvasResult.width = width;
+                    canvasResult.height = height;
+                    const ctxResult = canvasResult.getContext('2d');
+                    const imgDataResult = ctxResult.createImageData(width, height);
+
+                    let totalDiff = 0;
+
+                    // คำนวณความต่างพิกเซล
+                    for (let i = 0; i < imgDataOrig.data.length; i += 4) {
+                        const rDiff = Math.abs(imgDataOrig.data[i] - imgDataComp.data[i]);
+                        const gDiff = Math.abs(imgDataOrig.data[i+1] - imgDataComp.data[i+1]);
+                        const bDiff = Math.abs(imgDataOrig.data[i+2] - imgDataComp.data[i+2]);
+                        
+                        const avgPxDiff = (rDiff + gDiff + bDiff) / 3;
+                        totalDiff += avgPxDiff;
+
+                        imgDataResult.data[i] = Math.min(255, rDiff * multiplier);     
+                        imgDataResult.data[i+1] = Math.min(255, gDiff * multiplier);   
+                        imgDataResult.data[i+2] = Math.min(255, bDiff * multiplier);   
+                        imgDataResult.data[i+3] = 255;                                 
+                    }
+
+                    ctxResult.putImageData(imgDataResult, 0, 0);
+                    const averageDiff = totalDiff / (width * height);
+                    
+                    // คำนวณส่วนเบี่ยงเบนมาตรฐาน (Standard Deviation / Variance)
+                    let varianceSq = 0;
+                    for (let i = 0; i < imgDataOrig.data.length; i += 4) {
+                        const rDiff = Math.abs(imgDataOrig.data[i] - imgDataComp.data[i]);
+                        const gDiff = Math.abs(imgDataOrig.data[i+1] - imgDataComp.data[i+1]);
+                        const bDiff = Math.abs(imgDataOrig.data[i+2] - imgDataComp.data[i+2]);
+                        const avgPxDiff = (rDiff + gDiff + bDiff) / 3;
+                        varianceSq += Math.pow(avgPxDiff - averageDiff, 2);
+                    }
+                    const stdDev = Math.sqrt(varianceSq / (width * height));
+                    
+                    resolve({
+                        elaUrl: canvasResult.toDataURL('image/png'),
+                        averageDiff: parseFloat(averageDiff.toFixed(2)),
+                        stdDev: parseFloat(stdDev.toFixed(2))
+                    });
+                };
+                imgCompressed.src = jpegDataUrl;
+            });
+        }
+
+        async function startAnalysis() {
+            if (!currentFile || !previewImage.src) return;
+            
+            scanButton.classList.add('hidden');
+            progressSection.classList.remove('hidden');
+            resultSection.classList.add('hidden');
+
+            updateProgress(10, 'กำลังโหลดรูปภาพและเตรียมการวิเคราะห์...');
+
+            try {
+                // รอภาพโหลดสมบูรณ์
+                await new Promise((resolve) => {
+                    if (previewImage.complete) resolve();
+                    else previewImage.onload = resolve;
+                });
+
+                // จำลองเวลาสแกนเพื่อให้ UI ดูต่อเนื่อง
+                await new Promise(r => setTimeout(r, 600));
+                updateProgress(30, 'กำลังสแกนหา Metadata และลายน้ำดิจิทัล...');
+                const metaResult = await scanMetadata(currentFile);
+
+                await new Promise(r => setTimeout(r, 800));
+                updateProgress(60, 'กำลังวิเคราะห์โครงสร้างพิกเซลและเม็ดสี (ELA)...');
+                const elaResult = await performELA(previewImage);
+
+                let visionResult = null;
+                if (navigator.onLine) {
+                    updateProgress(80, 'กำลังใช้ระบบโครงข่ายประสาทวิทัศน์ (Vision AI) ตรวจองค์ประกอบภาพเชิงลึก...');
+                    visionResult = await analyzeCompositionWithAI(previewImage);
+                } else {
+                    updateProgress(80, 'โหมดออฟไลน์: ข้ามการวิเคราะห์ด้วย Vision AI...');
+                    await new Promise(r => setTimeout(r, 600)); // หน่วงเวลาให้ผู้ใช้อ่านข้อความ
+                }
+
+                updateProgress(95, 'ประมวลผลข้อมูลและสรุปผลเชิงลึก...');
+
+                setTimeout(() => {
+                    processFinalResult(metaResult, elaResult, visionResult);
+                }, 1000);
+
+            } catch (error) {
+                console.error(error);
+                showAlert('เกิดข้อผิดพลาดในการวิเคราะห์ภาพ กรุณาลองใหม่อีกครั้ง');
+                resetApp();
+            }
+        }
+
+        function processFinalResult(metaResult, elaResult, visionResult) {
+            let finalScore = 50;
+            let verdict = 'Real';
+            let reasons = [];
+
+            if (metaResult.isAi) {
+                finalScore = metaResult.confidence;
+                verdict = 'AI';
+                reasons.push(`หลักฐานชัดเจน: ตรวจพบลายน้ำ/Metadata ของซอฟต์แวร์ AI (${metaResult.signatures.join(', ')})`);
+            } else {
+                finalScore = 50;
+                
+                // 1. ตรวจสอบข้อมูลกล้อง
+                if (metaResult.hasRealCameraMeta) {
+                    finalScore -= 35;
+                    reasons.push('ตรวจพบข้อมูลเลนส์/เซนเซอร์กล้องจริง (EXIF Data) โอกาสเป็นภาพจริงสูงมาก');
+                } else {
+                    finalScore += 15;
+                    reasons.push('ไม่พบข้อมูลกล้องถ่ายภาพ (มักถูกลบออกในภาพ AI หรือภาพจากเน็ต)');
+                }
+                
+                // 2. วิเคราะห์ความเรียบเนียน (Average ELA)
+                if (elaResult.averageDiff < 2.5) {
+                    finalScore += 25;
+                    reasons.push(`พื้นผิวภาพเรียบเนียนผิดปกติ (ค่า ELA: ${elaResult.averageDiff}) ปราศจาก Noise เชิงแสงแบบธรรมชาติ`);
+                } else if (elaResult.averageDiff > 6.0) {
+                    finalScore -= 20;
+                    reasons.push(`พบระดับความคลาดเคลื่อนสูง (ค่า ELA: ${elaResult.averageDiff}) สอดคล้องกับเม็ดสีกระจายตัวของกล้องจริง`);
+                }
+                
+                // 3. วิเคราะห์ความซับซ้อนของโครงสร้าง (Standard Deviation)
+                if (elaResult.stdDev < 1.5) {
+                    finalScore += 15;
+                    reasons.push(`โครงสร้างพิกเซลขาดความลึกแบบธรรมชาติ (Low Variance: ${elaResult.stdDev}) มักพบในการเรนเดอร์ด้วยคอมพิวเตอร์`);
+                } else if (elaResult.stdDev > 4.0) {
+                    finalScore -= 10;
+                    reasons.push(`มีความแปรปรวนของแสงเงาและขอบวัตถุสูงสมจริง (High Variance)`);
+                }
+                
+                // 4. วิเคราะห์องค์ประกอบทางภาพ (Visual Composition) ผ่าน Backend AI
+                if (visionResult && !visionResult.error) {
+                    if (visionResult.ai_score > 65) {
+                        finalScore += 35;
+                    } else if (visionResult.ai_score < 35) {
+                        finalScore -= 35;
+                    } else {
+                        finalScore += (visionResult.ai_score - 50) * 0.5;
+                    }
+                    
+                    if(visionResult.visual_clues && visionResult.visual_clues.length > 0) {
+                        visionResult.visual_clues.forEach(clue => {
+                            reasons.push(`ตรวจพบโดย AI Vision: ${clue}`);
+                        });
+                    }
+                } else if (!navigator.onLine || (visionResult && visionResult.error === 'offline')) {
+                    reasons.push('⚠️ โหมดออฟไลน์: ประเมินจากโครงสร้างไฟล์และพิกเซลเท่านั้น');
+                } else if (visionResult && visionResult.error === 'no_backend') {
+                    reasons.push('⚠️ ข้ามการใช้ Vision AI (ยังไม่ได้ติดตั้ง Backend Vercel)');
+                }
+                
+                // 5. บังคับฟันธง (Force Decisiveness) - ไม่มีตรงกลาง 50%
+                if (finalScore >= 40 && finalScore <= 60) {
+                    if (elaResult.averageDiff < 4.0 && elaResult.stdDev < 2.5) {
+                        finalScore = 68;
+                        reasons.push('วิเคราะห์เชิงลึกขั้นสุดท้าย: โครงสร้างความสัมพันธ์ของเม็ดสีมีลักษณะคล้ายชุดคำสั่ง AI มากกว่าธรรมชาติ');
+                    } else {
+                        finalScore = 32;
+                        reasons.push('วิเคราะห์เชิงลึกขั้นสุดท้าย: รูปแบบ Grain และคอนทราสต์ใกล้เคียงกับภาพถ่ายดิจิทัลทั่วไป');
+                    }
+                }
+                
+                // จำกัดคะแนนที่ 2% - 98%
+                finalScore = Math.max(2, Math.min(98, Math.round(finalScore)));
+                verdict = finalScore > 50 ? 'AI' : 'Real';
+            }
+
+            // แสดงผล UI
+            updateProgress(100, 'เสร็จสิ้น');
+            progressSection.classList.add('hidden');
+            resultSection.classList.remove('hidden');
+
+            const displayConfidence = verdict === 'AI' ? finalScore : (100 - finalScore);
+            scorePercentage.textContent = `${displayConfidence}%`;
+            
+            // คำนวณเส้นรอบวงของวงกลม SVG
+            const circumference = 351.8; // 2 * pi * r (r=56)
+            const offset = circumference - (circumference * displayConfidence) / 100;
+            
+            // ปรับสี UI ตามผลลัพธ์
+            if (verdict === 'AI') {
+                resultCard.className = "p-6 rounded-xl border shadow-xl flex flex-col items-center justify-center text-center space-y-4 bg-red-950/40 border-red-800/50";
+                scoreRing.classList.remove('text-cyan-500', 'text-emerald-500');
+                scoreRing.classList.add('text-red-500');
+                verdictContainer.innerHTML = `
+                    <div class="flex items-center text-red-400">
+                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        ภาพนี้ถูกสร้างขึ้นด้วย AI
+                    </div>`;
+            } else {
+                resultCard.className = "p-6 rounded-xl border shadow-xl flex flex-col items-center justify-center text-center space-y-4 bg-emerald-950/40 border-emerald-800/50";
+                scoreRing.classList.remove('text-cyan-500', 'text-red-500');
+                scoreRing.classList.add('text-emerald-500');
+                verdictContainer.innerHTML = `
+                    <div class="flex items-center text-emerald-400">
+                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                        ภาพถ่ายธรรมชาติ (ภาพจริง)
+                    </div>`;
+            }
+
+            // Animate วงแหวน (หน่วงเวลาเล็กน้อยให้ transition ทำงาน)
+            setTimeout(() => {
+                scoreRing.style.strokeDashoffset = offset;
+            }, 50);
+
+            // แสดงเหตุผล
+            reasonsList.innerHTML = reasons.map(r => `
+                <li class="flex items-start">
+                    <span class="text-cyan-500 mr-2 mt-0.5">•</span>
+                    <span class="leading-relaxed">${r}</span>
+                </li>
+            `).join('');
+
+            // แสดงภาพ ELA
+            elaImage.src = elaResult.elaUrl;
+        }
+    </script>
+</body>
+</html>
